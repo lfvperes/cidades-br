@@ -1,0 +1,99 @@
+name: Build and Run
+
+on:
+  # Trigger for the 'build' job
+  push:
+    branches: [ "master" ]
+  
+  # Triggers for the 'run' job
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch: # Allows manual runs
+
+jobs:
+  # This job only runs on a push to the master branch
+  build:
+    # The 'if' condition is the key here
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment: bot-test
+    
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18.x
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build project
+      run: npm run build --if-present
+
+    - name: Run tests
+      env:
+        BLUESKY_USERNAME: ${{ secrets.BLUESKY_USERNAME }}
+        BLUESKY_PASSWORD: ${{ secrets.BLUESKY_PASSWORD }}
+      run: npm test --if-present
+
+    - name: Upload compiled code for the 'run' job to use
+      uses: actions/upload-artifact@v4
+      with:
+        name: compiled-js
+        path: dist/
+
+  # This job only runs on a schedule or a manual dispatch
+  run:
+    # This 'if' condition ensures it runs independently from the build
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: bot-test
+
+    # Explicitly grant the permissions this job needs.
+    permissions:
+      actions: read   # Required to search and list workflow runs
+      contents: read  # Required for actions/checkout
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18.x
+        cache: 'npm'
+
+    - name: Download artifact from the last successful workflow
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        name: compiled-js
+        path: dist/
+        # This tells the action to look for an artifact from this same workflow
+        # on the 'master' branch from the last successful run.
+        workflow: main.yml
+        branch: master
+        github_token: ${{ secrets.GITHUB_TOKEN }} # Required for permission to search runs
+        
+    - name: Install runtime dependencies
+      run: npm ci
+
+    - run: |
+        echo "Mock Secret Value: ${{ secrets.MOCK_SECRET }}"
+
+    - name: Run start script
+      env:
+        BLUESKY_USERNAME: ${{ secrets.BLUESKY_USERNAME }}
+        BLUESKY_PASSWORD: ${{ secrets.BLUESKY_PASSWORD }}
+      run: npm run start
+      
+    - name: Upload compiled code for the next 'run' job to use
+      uses: actions/upload-artifact@v4
+      with:
+        name: compiled-js
+        path: dist/
+      

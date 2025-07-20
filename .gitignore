@@ -1,0 +1,16 @@
+# Dependency directories
+node_modules/
+
+# local configuration
+.vscode/
+.continue/
+.logs
+
+# environment variable files
+.env
+
+# compiled files
+dist/
+
+# local files and assets
+test.*
