@@ -5,6 +5,7 @@ node_modules/
 .vscode/
 .continue/
 .logs
+.github/
 
 # environment variable files
 .env
@@ -14,3 +15,5 @@ dist/
 
 # local files and assets
 test.*
+*.ods
+*.xlsx
