@@ -7,6 +7,7 @@ import readFileToString from './readFile';
 import * as fs from 'fs';
 import createVideoPost from './embedVideo';
 import makeReplyContent from './makeReply';
+import { url } from 'inspector';
 
 // dotenv.config();
 
@@ -39,7 +40,7 @@ async function findPlace() {
 }
 
 async function main() {
-  await findPlace();
+  // await findPlace();
   // // Create a Bluesky Agent
   // const agent = new BskyAgent({
   //   service: 'https://bsky.social',
@@ -50,7 +51,25 @@ async function main() {
   //   password: process.env.BLUESKY_PASSWORD!
   // })
     // console.log(`Logged in as ${agent.session?.handle}`);
-    
+  
+  const CITIES_API_ENDPOINT = 'http://127.0.0.1:8000/cidades/?state_code=35&used=true';
+  try {
+  console.log('Fetching cities...');
+    const response = await fetch(CITIES_API_ENDPOINT, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const cities = await response.json();
+    console.log(cities);
+
+  } catch (error) {
+    console.error('Error fetching data:', error);
+  }
     // await agent.post(
     //     await createVideoPost(textPath, videoPath, agent)
     // );
