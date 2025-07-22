@@ -8,6 +8,8 @@ import * as fs from 'fs';
 import createVideoPost from './embedVideo';
 import makeReplyContent from './makeReply';
 import { url } from 'inspector';
+import { photosFromCity } from './places';
+import { getMapForCity } from './map';
 
 // dotenv.config();
 
@@ -52,24 +54,33 @@ async function main() {
   // })
     // console.log(`Logged in as ${agent.session?.handle}`);
   
-  const CITIES_API_ENDPOINT = 'http://127.0.0.1:8000/cidades/?state_code=35&used=true';
+  const CITIES_API_ENDPOINT = 'http://127.0.0.1:8000/cidades/random/';
+  var randomCity;
   try {
   console.log('Fetching cities...');
     const response = await fetch(CITIES_API_ENDPOINT, {
-      method: 'GET',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({"update_used": true})
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const cities = await response.json();
-    console.log(cities);
+    randomCity = await response.json();
+    console.log(randomCity);
 
   } catch (error) {
     console.error('Error fetching data:', error);
   }
+
+  console.log(randomCity.name)
+  photosFromCity(randomCity.name);
+  getMapForCity(randomCity.name)  
+
+
+
     // await agent.post(
     //     await createVideoPost(textPath, videoPath, agent)
     // );

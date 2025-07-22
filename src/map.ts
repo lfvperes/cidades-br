@@ -11,7 +11,7 @@ dotenv.config();
 // We don't need to initialize a client anymore
 // const client = new PlacesClient();
 
-async function getMapForCity(cityName: string) {
+export async function getMapForCity(cityName: string) {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY!;
   if (!apiKey) {
       throw new Error("The GOOGLE_MAPS_API_KEY environment variable is not set.");
@@ -106,5 +106,5 @@ async function getMapForCity(cityName: string) {
 
 // Example: Get a map for a specific city.
 // getMapForCity("Belo Horizonte mg");
-getMapForCity("sao carlos sp");
+// getMapForCity("sao carlos sp");
 // getMapForCity("sao carlos sc");

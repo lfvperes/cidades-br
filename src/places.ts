@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-async function main() {
+export async function photosFromCity(cityName: string) {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY!;
     if (!apiKey) {
         throw new Error("The GOOGLE_MAPS_API_KEY environment variable is not set.");
@@ -12,7 +12,7 @@ async function main() {
     
     // A minimal request body with only the required field.
     const requestBody = {
-        textQuery: 'praia grande',
+        textQuery: cityName,
         includedType: 'locality',
         languageCode: 'pt-BR'
     };
@@ -67,4 +67,4 @@ async function main() {
     }
 }
 
-main();
+// photosFromCity('Campo Grande mato grosso do sul');
