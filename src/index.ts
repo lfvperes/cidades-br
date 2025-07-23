@@ -10,6 +10,7 @@ import makeReplyContent from './makeReply';
 import { url } from 'inspector';
 import { photosFromCity } from './places';
 import { getMapForCity } from './map';
+import { processCity } from './googleMapsService';
 
 // dotenv.config();
 
@@ -61,7 +62,7 @@ async function main() {
     const response = await fetch(CITIES_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({"update_used": true})
+      body: JSON.stringify({"update_used": false})
     });
 
     if (!response.ok) {
@@ -76,20 +77,16 @@ async function main() {
   }
 
   console.log(randomCity.name)
-  photosFromCity(randomCity.name);
-  getMapForCity(randomCity.name)  
+  const assets = await processCity(`${randomCity.name} ${randomCity.state}`);
+  console.log(assets);
 
+  console.log(`📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s`);
+  console.log("Reply: Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.")
+  // const recordObj = await agent.post({
+  //     text: `${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}`
+  // })
 
-
-    // await agent.post(
-    //     await createVideoPost(textPath, videoPath, agent)
-    // );
-
-    // const recordObj = await agent.post({
-    //     text: `testing ${new Date().toLocaleTimeString()}`
-    // })
-
-    // console.log("Just posted!")
+  console.log("Just posted!")
     // console.log(recordObj)
     
     // await agent.post(makeReplyContent(recordObj, textPath))

@@ -1,15 +1,7 @@
-// We no longer need the Google Places library
-// const {PlacesClient} = require('@googlemaps/places').v1;
-// import "dotenv/config";
-// import * as process from 'process';
 import * as fs from "fs";
-
 import * as dotenv from 'dotenv';
 
 dotenv.config();
-
-// We don't need to initialize a client anymore
-// const client = new PlacesClient();
 
 export async function getMapForCity(cityName: string) {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY!;
@@ -30,13 +22,6 @@ export async function getMapForCity(cityName: string) {
   const fields = ['id', 'formattedAddress', 'photos', 'location'];
   const fieldMask = fields.map(field => `places.${field}`).join(',');
   try {
-    // In a direct REST call, the field mask is passed as a header
-    // const headers = {
-    //   'Content-Type': 'application/json',
-    //   'X-Goog-Api-Key': apiKey,
-    //   'X-Goog-FieldMask': fieldMask,
-    // };
-
     const apiResponse = await fetch(PLACES_API_ENDPOINT, {
       method: 'POST',
       headers: {
