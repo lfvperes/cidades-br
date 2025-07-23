@@ -14,3 +14,4 @@ dist/
 
 # local files and assets
 test.*
+*.png
