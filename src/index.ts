@@ -1,4 +1,4 @@
-import { BskyAgent } from '@atproto/api';
+import { BskyAgent, AtpAgent, RichText } from '@atproto/api';
 import * as dotenv from 'dotenv';
 import { CronJob } from 'cron';
 import * as process from 'process';
@@ -11,7 +11,7 @@ import makeReplyContent from './makeReply';
 dotenv.config();
 
 // Create a Bluesky Agent 
-const agent = new BskyAgent({
+const agent = new AtpAgent({
     service: 'https://bsky.social',
   })
 
@@ -41,16 +41,15 @@ async function main() {
     console.log("Just posted!")
     console.log(recordObj)
     
-    // await agent.post(makeReplyContent(recordObj, textPath))
-    await agent.post({
-        text: 'reply ok',
-        reply: {
-            root: recordObj,
-            parent: recordObj
-        }
-    })
+    // await agent.post({
+    //     text: 'reply ok',
+    //     reply: {
+    //         root: recordObj,
+    //         parent: recordObj
+    //     }
+    // })
 
-    console.log("Just replied!")    
+    // console.log("Just replied!")    
 }
 
 main();
