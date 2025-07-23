@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import { processCity } from './googleMapsService';
 import { mediaSkeet, simpleReplySkeet } from './bsky';
 import { mediaTweet } from './xitter';
+import { TwitterApi } from "twitter-api-v2";
 
 // dotenv.config();
 
@@ -14,10 +15,17 @@ import { mediaTweet } from './xitter';
 const agent = new AtpAgent({
     service: 'https://bsky.social',
 });
-const client = new Client({});
+// Create a X Client
+const xClient = new TwitterApi({
+  appKey: process.env.TWITTER_API_KEY!,
+  appSecret: process.env.TWITTER_API_SECRET!,
+  accessToken: process.env.TWITTER_ACCESS_TOKEN!,
+  accessSecret: process.env.TWITTER_ACCESS_SECRET!
+});
+const rwxClient = xClient.readWrite;
 
-const textPath = path.join(__dirname, '../assets', 'text.txt');
-const videoPath = path.join(__dirname, '../assets','video.mp4');
+// create a Google Maps Client
+const client = new Client({});
 
 async function main() {
     await agent.login({
@@ -44,7 +52,7 @@ async function main() {
     return; // Exit if we can't get a city
   }
 
-  // --- Generate Map and Photo Assets ---
+  // --- Generate Map and Photo Assets from Google Maps API and Google Places API ---
   const assetPaths = await processCity(`${randomCity.name} ${randomCity.state}`);
 
   if (assetPaths.length === 0) {
@@ -52,7 +60,7 @@ async function main() {
     return;
   }
 
-  // --- Create the Post ---
+  // --- Create post content ---
   const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s\n\n#Brasil`;
   const replyContent = "Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.";
   const altTexts = assetPaths.map((_, i) =>
@@ -63,15 +71,18 @@ async function main() {
   
   // --- Post to Bluesky ---
   const skeet = await mediaSkeet(agent, assetPaths, altTexts, textContent)  
-  console.log(`Post successful!\n${textContent}\n`);
+  console.log(`Post successful on Bluesky!\n${textContent}\n`);
   // --- Post a Reply ---
   await simpleReplySkeet(agent, skeet, replyContent);
-  console.log(`Reply successful!\n${replyContent}`);
+  console.log(`Reply successful on Bluesky!\n${replyContent}`);
   
   // --- Post to Twitter ---
-  const tweet = await mediaTweet(assetPaths, textContent);
-  console.log(`Tweet successful!\n${textContent}`);
-  await 
+  const tweet = await mediaTweet(xClient, rwxClient, assetPaths, textContent);
+  console.log(`Tweet successful on Twitter!\n${textContent}`);
+  if (tweet) {
+    await xClient.v2.reply(replyContent, tweet.data.id);
+    console.log(`Reply successful on Twitter!\n${replyContent}`);
+  }
 }
 
 main();
