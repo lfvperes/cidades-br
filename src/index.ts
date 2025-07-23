@@ -1,6 +1,6 @@
-import { BskyAgent } from '@atproto/api';
 import { Client, PlaceInputType } from "@googlemaps/google-maps-services-js";
 import "dotenv/config";
+import { BskyAgent, AtpAgent, RichText } from '@atproto/api';
 import * as process from 'process';
 import * as path from 'path';
 import readFileToString from './readFile';
@@ -8,14 +8,12 @@ import * as fs from 'fs';
 import createVideoPost from './embedVideo';
 import makeReplyContent from './makeReply';
 import { url } from 'inspector';
-import { photosFromCity } from './places';
-import { getMapForCity } from './map';
 import { processCity } from './googleMapsService';
 
 // dotenv.config();
 
 // Create a Bluesky Agent 
-const agent = new BskyAgent({
+const agent = new AtpAgent({
     service: 'https://bsky.social',
 });
 const client = new Client({});
@@ -42,15 +40,10 @@ async function findPlace() {
 }
 
 async function main() {
-  // Create a Bluesky Agent
-  const agent = new BskyAgent({
-    service: 'https://bsky.social',
-  })
-
-  await agent.login({
-    identifier: process.env.BLUESKY_USERNAME!,
-    password: process.env.BLUESKY_PASSWORD!
-  })
+    await agent.login({
+        identifier: process.env.BLUESKY_USERNAME!, 
+        password: process.env.BLUESKY_PASSWORD!
+    })
     console.log(`Logged in as ${agent.session?.handle}`);
   
   // --- Fetch Random City ---
@@ -85,11 +78,17 @@ async function main() {
   const uploadResults = await Promise.all(uploadPromises);
 
   // --- Create the Post ---
-  const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s`;
+  const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s\n\n#Brasil`;
   const replyContent = "Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.";
   
+
+  const rTxt = new RichText({
+      text: textContent,
+  })
+  await rTxt.detectFacets(agent);
   const recordObj = await agent.post({
-    text: textContent,
+    text: rTxt.text,
+    facets: rTxt.facets,
     langs: ["pt-BR"],
     embed: {
       $type: "app.bsky.embed.images",
@@ -99,6 +98,7 @@ async function main() {
       }))
     }
   });
+  
   
   console.log(`Post successful!\n${textContent}\n`);
   console.log("View post at:", `https://bsky.app/profile/${agent.session?.handle}/post/${recordObj.uri.split('/').pop()}`);
@@ -113,5 +113,7 @@ async function main() {
   });
   
   console.log(`Reply successful!\n${replyContent}`);
+    
 }
+
 main();
