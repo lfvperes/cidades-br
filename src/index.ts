@@ -43,8 +43,7 @@ async function findPlace() {
 }
 
 async function main() {
-  // await findPlace();
-  // // Create a Bluesky Agent
+  // Create a Bluesky Agent
   // const agent = new BskyAgent({
   //   service: 'https://bsky.social',
   // })
@@ -53,9 +52,10 @@ async function main() {
   //   identifier: process.env.BLUESKY_USERNAME!,
   //   password: process.env.BLUESKY_PASSWORD!
   // })
-    // console.log(`Logged in as ${agent.session?.handle}`);
+  //   console.log(`Logged in as ${agent.session?.handle}`);
   
-  const CITIES_API_ENDPOINT = 'http://127.0.0.1:8000/cidades/random/';
+  // const CITIES_API_ENDPOINT = 'http://127.0.0.1:8000/cidades/random/'
+  const CITIES_API_ENDPOINT = process.env.CITIES_API_ENDPOINT!
   var randomCity;
   try {
   console.log('Fetching cities...');
@@ -78,12 +78,40 @@ async function main() {
 
   console.log(randomCity.name)
   const assets = await processCity(`${randomCity.name} ${randomCity.state}`);
-  console.log(assets);
+  console.log(`assets: ${assets}`);
 
-  console.log(`📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s`);
-  console.log("Reply: Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.")
+  const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s`;
+  const replyContent = "Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.";
+  
+  // const { img1 } = await agent.com.atproto.repo.uploadBlob(
+  //   fs.readFileSync(assets[0]),
+  // );
+  // const { img2 } = await agent.com.atproto.repo.uploadBlob(
+  //   fs.readFileSync(assets[1]),
+  // );
+  // const { img3 } = await agent.com.atproto.repo.uploadBlob(
+  //   fs.readFileSync(assets[2]),
+  // );
+  // const { imgMap } = await agent.com.atproto.repo.uploadBlob(
+  //   fs.readFileSync(assets[3]),
+  // );
+
   // const recordObj = await agent.post({
-  //     text: `${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}`
+  //   text: textContent,
+  //   langs: ["pt"],
+  //   embed: {
+  //     $type: "app.bsky.embed.images",
+  //     images: [
+  //       {
+  //         alt: '',
+  //         image: data.blob,
+  //         aspectRatio: {
+  //             width: 360,
+  //             height: 640
+  //         }
+  //       },
+  //     ]
+  //   }
   // })
 
   console.log("Just posted!")
