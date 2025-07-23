@@ -1,15 +1,8 @@
 import "dotenv/config";
-import { BskyAgent, AtpAgent, RichText } from '@atproto/api';
-import * as process from 'process';
-import * as path from 'path';
-import readFileToString from './readFile';
+import { AtpAgent, RichText } from '@atproto/api';
 import * as fs from 'fs';
 
-const agent = new AtpAgent({
-    service: 'https://bsky.social',
-});
-
-async function mediaSkeet(imagePaths: string[], altTexts: string[], textContent: string) {
+export async function mediaSkeet(agent: AtpAgent, imagePaths: string[], altTexts: string[], textContent: string) {
   // --- Upload Images in Parallel ---
   console.log("Uploading images to Bluesky...");
   const uploadPromises = imagePaths.map(p => agent.com.atproto.repo.uploadBlob(fs.readFileSync(p)));
@@ -35,7 +28,7 @@ async function mediaSkeet(imagePaths: string[], altTexts: string[], textContent:
   return recordObj;
 }
 
-async function simpleReplySkeet(recordObj: { uri: string; cid: string }, textContent: string) {
+export async function simpleReplySkeet(agent: AtpAgent, recordObj: { uri: string; cid: string }, textContent: string) {
   await agent.post({
     text: textContent,
     reply: {
