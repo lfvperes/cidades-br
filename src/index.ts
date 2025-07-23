@@ -78,11 +78,17 @@ async function main() {
   const uploadResults = await Promise.all(uploadPromises);
 
   // --- Create the Post ---
-  const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s`;
+  const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s\n\n#Brasil`;
   const replyContent = "Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.";
   
+
+  const rTxt = new RichText({
+      text: textContent,
+  })
+  await rTxt.detectFacets(agent);
   const recordObj = await agent.post({
-    text: textContent,
+    text: rTxt.text,
+    facets: rTxt.facets,
     langs: ["pt-BR"],
     embed: {
       $type: "app.bsky.embed.images",
@@ -92,6 +98,7 @@ async function main() {
       }))
     }
   });
+  
   
   console.log(`Post successful!\n${textContent}\n`);
   console.log("View post at:", `https://bsky.app/profile/${agent.session?.handle}/post/${recordObj.uri.split('/').pop()}`);
@@ -106,6 +113,7 @@ async function main() {
   });
   
   console.log(`Reply successful!\n${replyContent}`);
+    
 }
 
 main();

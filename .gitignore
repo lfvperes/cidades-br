@@ -5,7 +5,7 @@ node_modules/
 .vscode/
 .continue/
 .logs
-.github/
+# .github/
 
 # environment variable files
 .env
