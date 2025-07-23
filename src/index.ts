@@ -61,7 +61,7 @@ async function main() {
     const response = await fetch(CITIES_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ "update_used": false })
+      body: JSON.stringify({ "update_used": true })
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     randomCity = await response.json();
