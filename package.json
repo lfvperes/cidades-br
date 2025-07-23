@@ -5,7 +5,8 @@
         "dotenv": "^16.3.1",
         "fluent-ffmpeg": "^2.1.3",
         "multiformats": "^13.3.7",
-        "process": "^0.11.10"
+        "process": "^0.11.10",
+        "twitter-api-v2": "^1.24.0"
     },
     "name": "bluesky-bot",
     "version": "1.0.0",
