@@ -17,8 +17,7 @@ import { processCity } from './googleMapsService';
 // Create a Bluesky Agent 
 const agent = new BskyAgent({
     service: 'https://bsky.social',
-  })
-  
+});
 const client = new Client({});
 
 const textPath = path.join(__dirname, '../assets', 'text.txt');
@@ -44,89 +43,75 @@ async function findPlace() {
 
 async function main() {
   // Create a Bluesky Agent
-  // const agent = new BskyAgent({
-  //   service: 'https://bsky.social',
-  // })
+  const agent = new BskyAgent({
+    service: 'https://bsky.social',
+  })
 
-  // await agent.login({
-  //   identifier: process.env.BLUESKY_USERNAME!,
-  //   password: process.env.BLUESKY_PASSWORD!
-  // })
-  //   console.log(`Logged in as ${agent.session?.handle}`);
+  await agent.login({
+    identifier: process.env.BLUESKY_USERNAME!,
+    password: process.env.BLUESKY_PASSWORD!
+  })
+    console.log(`Logged in as ${agent.session?.handle}`);
   
-  // const CITIES_API_ENDPOINT = 'http://127.0.0.1:8000/cidades/random/'
-  const CITIES_API_ENDPOINT = process.env.CITIES_API_ENDPOINT!
-  var randomCity;
+  // --- Fetch Random City ---
+  const CITIES_API_ENDPOINT = process.env.CITIES_API_ENDPOINT!;
+  var randomCity: any;
   try {
-  console.log('Fetching cities...');
+    console.log('Fetching a random city...');
     const response = await fetch(CITIES_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({"update_used": false})
+      body: JSON.stringify({ "update_used": false })
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     randomCity = await response.json();
-    console.log(randomCity);
-
+    console.log(`City found: ${randomCity.name}`);
   } catch (error) {
-    console.error('Error fetching data:', error);
+    console.error('Error fetching city data:', error);
+    return; // Exit if we can't get a city
   }
 
-  console.log(randomCity.name)
-  const assets = await processCity(`${randomCity.name} ${randomCity.state}`);
-  console.log(`assets: ${assets}`);
+  // --- Generate Map and Photo Assets ---
+  const assetPaths = await processCity(`${randomCity.name} ${randomCity.state}`);
 
+  if (assetPaths.length === 0) {
+    console.log("No assets were generated. Aborting post.");
+    return;
+  }
+
+  // // --- Upload Images in Parallel ---
+  console.log("Uploading images to Bluesky...");
+  const uploadPromises = assetPaths.map(p => agent.com.atproto.repo.uploadBlob(fs.readFileSync(p)));
+  const uploadResults = await Promise.all(uploadPromises);
+
+  // --- Create the Post ---
   const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s`;
   const replyContent = "Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.";
   
-  // const { img1 } = await agent.com.atproto.repo.uploadBlob(
-  //   fs.readFileSync(assets[0]),
-  // );
-  // const { img2 } = await agent.com.atproto.repo.uploadBlob(
-  //   fs.readFileSync(assets[1]),
-  // );
-  // const { img3 } = await agent.com.atproto.repo.uploadBlob(
-  //   fs.readFileSync(assets[2]),
-  // );
-  // const { imgMap } = await agent.com.atproto.repo.uploadBlob(
-  //   fs.readFileSync(assets[3]),
-  // );
-
-  // const recordObj = await agent.post({
-  //   text: textContent,
-  //   langs: ["pt"],
-  //   embed: {
-  //     $type: "app.bsky.embed.images",
-  //     images: [
-  //       {
-  //         alt: '',
-  //         image: data.blob,
-  //         aspectRatio: {
-  //             width: 360,
-  //             height: 640
-  //         }
-  //       },
-  //     ]
-  //   }
-  // })
-
-  console.log("Just posted!")
-    // console.log(recordObj)
-    
-    // await agent.post(makeReplyContent(recordObj, textPath))
-    // await agent.post({
-    //     text: 'reply ok',
-    //     reply: {
-    //         root: recordObj,
-    //         parent: recordObj
-    //     }
-    // })
-
-    // console.log("Just replied!")    
+  const recordObj = await agent.post({
+    text: textContent,
+    langs: ["pt-BR"],
+    embed: {
+      $type: "app.bsky.embed.images",
+      images: uploadResults.map(res => ({
+        alt: `Imagem de ${randomCity.name}, ${randomCity.state}`, // Add descriptive alt text
+        image: res.data.blob,
+      }))
+    }
+  });
+  
+  console.log(`Post successful!\n${textContent}\n`);
+  console.log("View post at:", `https://bsky.app/profile/${agent.session?.handle}/post/${recordObj.uri.split('/').pop()}`);
+  
+  // // --- Post a Reply ---
+  await agent.post({
+    text: replyContent,
+    reply: {
+      root: recordObj,
+      parent: recordObj
+    }
+  });
+  
+  console.log(`Reply successful!\n${replyContent}`);
 }
-
 main();
