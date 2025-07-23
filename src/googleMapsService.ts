@@ -4,37 +4,37 @@ import path from 'path';
 
 dotenv.config();
 
-// This is the main function you will export and call from your application.
 /**
  * Fetches data for a city and generates a map and photos, all in one efficient process.
  * @param cityName The name of the city to process.
+ * @returns A promise that resolves to an array of file paths for the generated assets.
  */
-export async function processCity(cityName: string) {
+export async function processCity(cityName: string): Promise<string[]> {
+  var filePaths: string[] = [''];
   try {
     console.log(`Starting all operations for city: ${cityName}`);
     
-    // Step 1: Fetch all required data in a single API call.
     const cityData = await fetchCityData(cityName);
 
     if (!cityData) {
       console.log(`Process halted because no data was found for ${cityName}.`);
-      return;
+      return [''];
     }
 
-    // Step 2: Run the asset generation tasks in parallel for efficiency.
-    const [mapPath, imagePaths] = await Promise.all([
+    // Run asset generation in parallel and collect the file paths.
+    const results = await Promise.all([
       generateMapImage(cityData),
       downloadPhotos(cityData)
     ]);
-    const assets = imagePaths?.push(mapPath);
+
+    filePaths = results.flat(); // Flatten the array of arrays
+    console.log(`\nSuccessfully generated assets: ${filePaths.join(', ')}`);
     
-    console.log(`\nSuccessfully generated all assets for ${cityName}.`);
-    
-    return assets;
+
   } catch (error) {
     console.error(`\nAn error occurred during the processing of ${cityName}:`, error);
-    return []
   }
+  return filePaths;
 }
 
 // --- Internal "Worker" Functions ---
@@ -78,9 +78,9 @@ async function fetchCityData(cityName: string): Promise<any | null> {
 
 /**
  * Generates and saves a static map image from pre-fetched location data.
- * This function is not exported, as it's a helper for `processCity`.
+ * @returns The path to the saved map image, or null if it failed.
  */
-async function generateMapImage(place: any) {
+async function generateMapImage(place: any): Promise<string> {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY!;
   const { latitude: lat, longitude: lng } = place.location;
   
@@ -98,46 +98,48 @@ async function generateMapImage(place: any) {
   const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
   const mapResponse = await fetch(mapUrl);
   
-  const imagePath = path.join(__dirname,"..", "assets","map.png");
   if (mapResponse.ok) {
+    const imagePath = path.join(__dirname, "..", "assets", "map.png");
     const imageBuffer = Buffer.from(await mapResponse.arrayBuffer());
     await fs.promises.writeFile(imagePath, imageBuffer);
     console.log(` -> Map image saved to ${imagePath}`);
+    return imagePath; // Return the path
   } else {
     console.error(` -> Failed to fetch map image: ${mapResponse.status}`);
+    return '';
   }
-  return imagePath;
 }
 
 /**
  * Downloads and saves photos from pre-fetched photo data.
- * This function is not exported, as it's a helper for `processCity`.
+ * @returns An array of paths to the downloaded photos.
  */
-async function downloadPhotos(place: any) {
+async function downloadPhotos(place: any): Promise<string[]> {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY!;
+  const savedImagePaths: string[] = [];
   
   if (!place.photos || place.photos.length === 0) {
     console.log(`-> No photos to download for '${place.formattedAddress}'.`);
-    return;
+    return savedImagePaths;
   }
 
   console.log(`-> Downloading photos for '${place.formattedAddress}'...`);
-  const photoNames = place.photos.map((p: any) => p.name).slice(0, 4);
+  // Limit to 3 photos to make room for the map (total 4 images)
+  const photoNames = place.photos.map((p: any) => p.name).slice(0, 3);
 
-  const imagePaths = [];
   for (const [index, name] of photoNames.entries()) {
     const urlPhoto = `https://places.googleapis.com/v1/${name}/media?key=${apiKey}&maxHeightPx=1000&maxWidthPx=1000`;
     const responsePhoto = await fetch(urlPhoto);
 
     if (responsePhoto.ok) {
-      const imagePath = path.join(__dirname, '..', "assets", `photo_${index + 1}.png`);
-      imagePaths.push(imagePath);
+      const imagePath = path.join(__dirname, "..", "assets", `photo_${index + 1}.png`);
       const imageBuffer = Buffer.from(await responsePhoto.arrayBuffer());
       await fs.promises.writeFile(imagePath, imageBuffer);
       console.log(` -> Photo saved to ${imagePath}`);
+      savedImagePaths.push(imagePath); // Add successful path to the array
     } else {
       console.error(` -> Failed to fetch photo ${name}: ${responsePhoto.status}`);
     }
   }
-  return imagePaths
+  return savedImagePaths;
 }
