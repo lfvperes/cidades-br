@@ -29,8 +29,13 @@ async function main() {
     //     await createVideoPost(textPath, videoPath, agent)
     // );
 
+    const rTxt = new RichText({
+        text: `#testing hashtag`,
+    })
+    await rTxt.detectFacets(agent);
     const recordObj = await agent.post({
-        text: `testing ${new Date().toLocaleTimeString()}`
+        text: rTxt.text,
+        facets: rTxt.facets
     })
 
     console.log("Just posted!")
