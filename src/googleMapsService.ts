@@ -7,10 +7,9 @@ dotenv.config();
 /**
  * Fetches data for a city and generates a map and photos, all in one efficient process.
  * @param cityName The name of the city to process.
- * @returns A promise that resolves to an array of file paths for the generated assets.
+ * @returns A promise that resolves to an array of file paths for the generated assets, with a maximum of 4.
  */
 export async function processCity(cityName: string): Promise<string[]> {
-  var filePaths: string[] = [''];
   try {
     console.log(`Starting all operations for city: ${cityName}`);
     
@@ -18,23 +17,30 @@ export async function processCity(cityName: string): Promise<string[]> {
 
     if (!cityData) {
       console.log(`Process halted because no data was found for ${cityName}.`);
-      return [''];
+      return [];
     }
 
-    // Run asset generation in parallel and collect the file paths.
-    const results = await Promise.all([
+    // Run asset generation in parallel.
+    const [mapPath, photoPaths] = await Promise.all([
       generateMapImage(cityData),
       downloadPhotos(cityData)
     ]);
 
-    filePaths = results.flat(); // Flatten the array of arrays
-    console.log(`\nSuccessfully generated assets: ${filePaths.join(', ')}`);
-    
+    // --- Intelligent Asset Assembly ---
+    const finalAssetPaths: string[] = [];
 
+    if (mapPath) {
+      finalAssetPaths.push(mapPath);
+    }
+
+    finalAssetPaths.push(...photoPaths);
+    console.log(`\nSuccessfully generated and selected assets: ${finalAssetPaths.map(p => path.basename(p)).join(', ')}`);
+    return finalAssetPaths;
+    
   } catch (error) {
     console.error(`\nAn error occurred during the processing of ${cityName}:`, error);
+    return [];
   }
-  return filePaths;
 }
 
 // --- Internal "Worker" Functions ---
@@ -89,7 +95,8 @@ async function generateMapImage(place: any): Promise<string> {
   const params = new URLSearchParams({
     center: `${lat},${lng}`,
     zoom: "12",
-    size: "800x450",
+    size: "640x640", // max size for the API
+    scale: "2",
     markers: `color:red|label:C|${lat},${lng}`,
     key: apiKey,
   });
@@ -128,7 +135,7 @@ async function downloadPhotos(place: any): Promise<string[]> {
   const photoNames = place.photos.map((p: any) => p.name).slice(0, 3);
 
   for (const [index, name] of photoNames.entries()) {
-    const urlPhoto = `https://places.googleapis.com/v1/${name}/media?key=${apiKey}&maxHeightPx=1000&maxWidthPx=1000`;
+    const urlPhoto = `https://places.googleapis.com/v1/${name}/media?key=${apiKey}&maxHeightPx=1280&maxWidthPx=1280`;
     const responsePhoto = await fetch(urlPhoto);
 
     if (responsePhoto.ok) {
