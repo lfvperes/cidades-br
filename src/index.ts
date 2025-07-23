@@ -1,14 +1,10 @@
 import { BskyAgent, AtpAgent, RichText } from '@atproto/api';
-import * as dotenv from 'dotenv';
-import { CronJob } from 'cron';
+import "dotenv/config";
 import * as process from 'process';
 import * as path from 'path';
-import readFileToString from './readFile';
-import * as fs from 'fs';
-import createVideoPost from './embedVideo';
-import makeReplyContent from './makeReply';
-
-dotenv.config();
+import { TwitterApi } from 'twitter-api-v2';
+import { mediaTweet } from './xitter';
+import { mediaSkeet, simpleReplySkeet } from './bsky';
 
 // Create a Bluesky Agent 
 const agent = new AtpAgent({
@@ -25,31 +21,16 @@ async function main() {
     })
     console.log(`Logged in as ${agent.session?.handle}`);
     
-    // await agent.post(
-    //     await createVideoPost(textPath, videoPath, agent)
-    // );
+    const client = new TwitterApi({
+        appKey: process.env.TWITTER_API_KEY!,
+        appSecret: process.env.TWITTER_API_SECRET!,
+        accessToken: process.env.TWITTER_ACCESS_TOKEN!,
+        accessSecret: process.env.TWITTER_ACCESS_SECRET!
+    });
+    const rwClient = client.readWrite;
 
-    const rTxt = new RichText({
-        text: `#testing hashtag`,
-    })
-    await rTxt.detectFacets(agent);
-    const recordObj = await agent.post({
-        text: rTxt.text,
-        facets: rTxt.facets
-    })
-
-    console.log("Just posted!")
-    console.log(recordObj)
-    
-    // await agent.post({
-    //     text: 'reply ok',
-    //     reply: {
-    //         root: recordObj,
-    //         parent: recordObj
-    //     }
-    // })
-
-    // console.log("Just replied!")    
+    mediaSkeet(agent, [textPath, videoPath], ["text", "video"], "test from nodejs with 2 photos and hashtag #test");
+    mediaTweet(client, rwClient, [textPath, videoPath]);
 }
 
 main();
