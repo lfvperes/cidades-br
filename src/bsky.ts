@@ -34,3 +34,13 @@ async function mediaSkeet(imagePaths: string[], altTexts: string[], textContent:
 
   return recordObj;
 }
+
+async function simpleReplySkeet(recordObj: { uri: string; cid: string }, textContent: string) {
+  await agent.post({
+    text: textContent,
+    reply: {
+        root: recordObj,
+        parent: recordObj
+    }
+  });
+}

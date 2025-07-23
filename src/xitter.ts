@@ -20,12 +20,14 @@ export async function mediaTweet(imagePaths: string[]) {
         const uploadResults = await Promise.all(uploadPromises);
 
         const mediaId = uploadResults;
-        await rwClient.v2.tweet({
+        const createdTweet = await rwClient.v2.tweet({
             text: "test from nodejs with 2 photos and hashtag #test",
             media: { media_ids: mediaId as [string]},
         });
         console.log("success");
+        return createdTweet;
     } catch (e) {
         console.error(e);
     }
 };
+
