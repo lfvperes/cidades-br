@@ -1,6 +1,6 @@
-import { BskyAgent } from '@atproto/api';
 import { Client, PlaceInputType } from "@googlemaps/google-maps-services-js";
 import "dotenv/config";
+import { BskyAgent, AtpAgent, RichText } from '@atproto/api';
 import * as process from 'process';
 import * as path from 'path';
 import readFileToString from './readFile';
@@ -8,14 +8,12 @@ import * as fs from 'fs';
 import createVideoPost from './embedVideo';
 import makeReplyContent from './makeReply';
 import { url } from 'inspector';
-import { photosFromCity } from './places';
-import { getMapForCity } from './map';
 import { processCity } from './googleMapsService';
 
 // dotenv.config();
 
 // Create a Bluesky Agent 
-const agent = new BskyAgent({
+const agent = new AtpAgent({
     service: 'https://bsky.social',
 });
 const client = new Client({});
@@ -42,15 +40,10 @@ async function findPlace() {
 }
 
 async function main() {
-  // Create a Bluesky Agent
-  const agent = new BskyAgent({
-    service: 'https://bsky.social',
-  })
-
-  await agent.login({
-    identifier: process.env.BLUESKY_USERNAME!,
-    password: process.env.BLUESKY_PASSWORD!
-  })
+    await agent.login({
+        identifier: process.env.BLUESKY_USERNAME!, 
+        password: process.env.BLUESKY_PASSWORD!
+    })
     console.log(`Logged in as ${agent.session?.handle}`);
   
   // --- Fetch Random City ---
@@ -114,4 +107,5 @@ async function main() {
   
   console.log(`Reply successful!\n${replyContent}`);
 }
+
 main();
