@@ -38,11 +38,11 @@ async function countLines(filePath: string) {
     return lineCount;
 }
 
-let ind = 1;
-const data = fs.readFileSync(`assets/${codesUF[ind]}.ods`, 'utf8');
-const dataCSV = convertODStoCSV(`assets/${codesUF[ind]}.ods`).split('\n');
-const lineCount = dataCSV.length;
-console.log(lineCount);
+// let ind = 1;
+// const data = fs.readFileSync(`assets/${codesUF[ind]}.ods`, 'utf8');
+// const dataCSV = convertODStoCSV(`assets/${codesUF[ind]}.ods`).split('\n');
+// const lineCount = dataCSV.length;
+// console.log(lineCount);
 
 const allCityCodes: string[] = [];
 
@@ -59,16 +59,28 @@ const popCol = 7;
 // }
 
 
+var dataCSV;
+var cleanDataCSV = [];
+var stateName = '';
+const header = convertODStoCSV(`assets/${codesUF[0]}.ods`).split('\n')[2]
+    .replaceAll(/<\/?span>/g,'') + ',Estado [-]\n';
+console.log(`header is ${header}`)
 for (const uf in codesUF) {
-    const dataCSV = convertODStoCSV(`assets/${codesUF[uf]}.ods`).split('\n');
+    dataCSV = convertODStoCSV(`assets/${codesUF[uf]}.ods`).split('\n');
+    stateName = dataCSV[0].replace(/ \| Todos os Municípios,+/, '');
     for (let row = 3; row < dataCSV.length - 15; row++) {
+        dataCSV[row] += ',' + stateName;
+        cleanDataCSV.push(dataCSV[row]);
         allCityCodes.push(dataCSV[row].split(',')[codeCol]);
     }
 }
 
 console.log(allCityCodes.length);
+// console.log(cleanDataCSV[3427]);
 
-const chosenCityIdx = Math.floor(Math.random() * allCityCodes.length);
+fs.writeFileSync('./cities.csv', header + cleanDataCSV.join('\n'));
+
+const chosenCityIdx = Math.floor(Math.random() * allCityCodes.length) + 1;
 console.log(`Número escolhido: ${chosenCityIdx}`);
 console.log(`Código da cidade escolhida: ${allCityCodes[chosenCityIdx]}`);
 
@@ -80,6 +92,6 @@ for (const line in chosenUFdata) {
         row = Number(line);
     }
 }
-const stateName = chosenUFdata[0].split(',')[0].replace(' \| Todos os Municípios', '');
+const stateName2 = chosenUFdata[0].split(',')[0].replace(' \| Todos os Municípios', '');
 
-console.log(`📍 ${chosenUFdata[row].split(',')[nameCol]}, ${stateName}.\nPopulação: ${chosenUFdata[row].split(',')[popCol]} ${chosenUFdata[row].split(',')[gentCol]}s`);
+console.log(`📍 ${chosenUFdata[row].split(',')[nameCol]}, ${stateName2}.\nPopulação: ${chosenUFdata[row].split(',')[popCol]} ${chosenUFdata[row].split(',')[gentCol]}s`);

@@ -17,3 +17,5 @@ dist/
 test.*
 *.ods
 *.xlsx
+*.csv
+*.png

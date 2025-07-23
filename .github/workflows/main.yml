@@ -7,7 +7,7 @@ on:
   
   # Triggers for the 'run' job
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 9/12 * * *'
   workflow_dispatch: # Allows manual runs
 
 jobs:
@@ -38,6 +38,8 @@ jobs:
       env:
         BLUESKY_USERNAME: ${{ secrets.BLUESKY_USERNAME }}
         BLUESKY_PASSWORD: ${{ secrets.BLUESKY_PASSWORD }}
+        GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        CITIES_API_ENDPOINT: ${{ secrets.CITIES_API_ENDPOINT }}
       run: npm test --if-present
 
     - name: Upload compiled code for the 'run' job to use
@@ -82,13 +84,12 @@ jobs:
     - name: Install runtime dependencies
       run: npm ci
 
-    - run: |
-        echo "Mock Secret Value: ${{ secrets.MOCK_SECRET }}"
-
     - name: Run start script
       env:
         BLUESKY_USERNAME: ${{ secrets.BLUESKY_USERNAME }}
         BLUESKY_PASSWORD: ${{ secrets.BLUESKY_PASSWORD }}
+        GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        CITIES_API_ENDPOINT: ${{ secrets.CITIES_API_ENDPOINT }}
       run: npm run start
       
     - name: Upload compiled code for the next 'run' job to use

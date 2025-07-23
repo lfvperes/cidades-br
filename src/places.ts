@@ -1,8 +1,9 @@
 import * as dotenv from 'dotenv';
+import * as fs from 'fs';
 
 dotenv.config();
 
-async function main() {
+export async function photosFromCity(cityName: string) {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY!;
     if (!apiKey) {
         throw new Error("The GOOGLE_MAPS_API_KEY environment variable is not set.");
@@ -12,7 +13,7 @@ async function main() {
     
     // A minimal request body with only the required field.
     const requestBody = {
-        textQuery: 'praia grande',
+        textQuery: cityName,
         includedType: 'locality',
         languageCode: 'pt-BR'
     };
@@ -45,21 +46,32 @@ async function main() {
         const allPhotoNames = data.places.flatMap((place: any) => place.photos.map((photo: any) => photo.name));
         
         const allPhotoUris : string[] = []
-        for (let name of allPhotoNames) {
-            // const name = allPhotoNames[0]
+        for (let name of allPhotoNames.slice(0, 5)) {
             // Fetch the photo using the name from
-            const urlPhoto = `https://places.googleapis.com/v1/${name}/media?key=${apiKey}&maxHeightPx=1000&maxWidthPx=1000&skipHttpRedirect=true`;
+            // By removing `skipHttpRedirect=true`, the response body will be the image itself.
+            const urlPhoto = `https://places.googleapis.com/v1/${name}/media?key=${apiKey}&maxHeightPx=1000&maxWidthPx=1000`;
             const responsePhoto = await fetch(urlPhoto, {
                 method: 'GET',
                 headers: {
                     'X-Goog-Api-Key': apiKey,
                 },
             });
-            const responseBodyPhoto = await responsePhoto.text();
-            const newUri = JSON.parse(responseBodyPhoto).photoUri;
+
+            if (!responsePhoto.ok) {
+                // Handle potential errors when fetching the image itself
+                console.error(`Failed to fetch image for ${name}. Status: ${responsePhoto.status}`);
+                continue; // Skip to the next photo
+            }
+
+            // The final URL after redirection is the photo's URI.
+            const newUri = responsePhoto.url;
             allPhotoUris.push(newUri);
+
+            // Read the body ONCE as an ArrayBuffer.
+            const imageArrayBuffer = await responsePhoto.arrayBuffer();
+            const imageBuffer = Buffer.from(imageArrayBuffer);
+            await fs.promises.writeFile(`img${allPhotoUris.length}.png`, imageBuffer);
         }
-        console.log(allPhotoUris);
         
     } catch (error) {
         // We already logged the important details, so just print the error object.
@@ -67,4 +79,4 @@ async function main() {
     }
 }
 
-main();
+// photosFromCity('Campo Grande mato grosso do sul');
