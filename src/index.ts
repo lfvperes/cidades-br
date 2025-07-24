@@ -1,14 +1,13 @@
 import { Client, PlaceInputType } from "@googlemaps/google-maps-services-js";
 import "dotenv/config";
-import { BskyAgent, AtpAgent, RichText } from '@atproto/api';
+import { AtpAgent, RichText } from '@atproto/api';
 import * as process from 'process';
 import * as path from 'path';
-import readFileToString from './readFile';
 import * as fs from 'fs';
-import createVideoPost from './embedVideo';
-import makeReplyContent from './makeReply';
-import { url } from 'inspector';
 import { processCity } from './googleMapsService';
+import { mediaSkeet, simpleReplySkeet } from './bsky';
+import { mediaTweet } from './xitter';
+import { TwitterApi } from "twitter-api-v2";
 
 // dotenv.config();
 
@@ -16,28 +15,17 @@ import { processCity } from './googleMapsService';
 const agent = new AtpAgent({
     service: 'https://bsky.social',
 });
+// Create a X Client
+const xClient = new TwitterApi({
+  appKey: process.env.TWITTER_API_KEY!,
+  appSecret: process.env.TWITTER_API_SECRET!,
+  accessToken: process.env.TWITTER_ACCESS_TOKEN!,
+  accessSecret: process.env.TWITTER_ACCESS_SECRET!
+});
+const rwxClient = xClient.readWrite;
+
+// create a Google Maps Client
 const client = new Client({});
-
-const textPath = path.join(__dirname, '../assets', 'text.txt');
-const videoPath = path.join(__dirname, '../assets','video.mp4');
-
-async function findPlace() {
-  try {
-    const request = {
-      params: {
-        input: "Museum of Contemporary Art Australia",
-        inputtype: PlaceInputType.textQuery,
-        fields: ["name", "geometry"],
-        key: process.env.GOOGLE_MAPS_API_KEY!,
-      },
-    };
-
-    const response = await client.findPlaceFromText(request);
-    console.log(response.data.candidates);
-  } catch (error) {
-    console.error(error);
-  }
-}
 
 async function main() {
     await agent.login({
@@ -64,7 +52,7 @@ async function main() {
     return; // Exit if we can't get a city
   }
 
-  // --- Generate Map and Photo Assets ---
+  // --- Generate Map and Photo Assets from Google Maps API and Google Places API ---
   const assetPaths = await processCity(`${randomCity.name} ${randomCity.state}`);
 
   if (assetPaths.length === 0) {
@@ -72,48 +60,29 @@ async function main() {
     return;
   }
 
-  // // --- Upload Images in Parallel ---
-  console.log("Uploading images to Bluesky...");
-  const uploadPromises = assetPaths.map(p => agent.com.atproto.repo.uploadBlob(fs.readFileSync(p)));
-  const uploadResults = await Promise.all(uploadPromises);
-
-  // --- Create the Post ---
+  // --- Create post content ---
   const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s\n\n#Brasil`;
   const replyContent = "Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.";
+  const altTexts = assetPaths.map((_, i) =>
+    i === 0
+      ? `Mapa de ${randomCity.name}, ${randomCity.state}`
+      : `Foto de ${randomCity.name}, ${randomCity.state}`
+  );
   
-
-  const rTxt = new RichText({
-      text: textContent,
-  })
-  await rTxt.detectFacets(agent);
-  const recordObj = await agent.post({
-    text: rTxt.text,
-    facets: rTxt.facets,
-    langs: ["pt-BR"],
-    embed: {
-      $type: "app.bsky.embed.images",
-      images: uploadResults.map(res => ({
-        alt: `Imagem de ${randomCity.name}, ${randomCity.state}`, // Add descriptive alt text
-        image: res.data.blob,
-      }))
-    }
-  });
+  // --- Post to Bluesky ---
+  const skeet = await mediaSkeet(agent, assetPaths, altTexts, textContent)  
+  console.log(`Post successful on Bluesky!\n${textContent}\n`);
+  // --- Post a Reply ---
+  await simpleReplySkeet(agent, skeet, replyContent);
+  console.log(`Reply successful on Bluesky!\n${replyContent}`);
   
-  
-  console.log(`Post successful!\n${textContent}\n`);
-  console.log("View post at:", `https://bsky.app/profile/${agent.session?.handle}/post/${recordObj.uri.split('/').pop()}`);
-  
-  // // --- Post a Reply ---
-  await agent.post({
-    text: replyContent,
-    reply: {
-      root: recordObj,
-      parent: recordObj
-    }
-  });
-  
-  console.log(`Reply successful!\n${replyContent}`);
-    
+  // --- Post to Twitter ---
+  const tweet = await mediaTweet(xClient, rwxClient, assetPaths, textContent);
+  console.log(`Tweet successful on Twitter!\n${textContent}`);
+  if (tweet) {
+    await xClient.v2.reply(replyContent, tweet.data.id);
+    console.log(`Reply successful on Twitter!\n${replyContent}`);
+  }
 }
 
 main();

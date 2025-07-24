@@ -40,6 +40,10 @@ jobs:
         BLUESKY_PASSWORD: ${{ secrets.BLUESKY_PASSWORD }}
         GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         CITIES_API_ENDPOINT: ${{ secrets.CITIES_API_ENDPOINT }}
+        TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+        TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+        TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+        TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
       run: npm test --if-present
 
     - name: Upload compiled code for the 'run' job to use
@@ -90,6 +94,10 @@ jobs:
         BLUESKY_PASSWORD: ${{ secrets.BLUESKY_PASSWORD }}
         GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         CITIES_API_ENDPOINT: ${{ secrets.CITIES_API_ENDPOINT }}
+        TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+        TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+        TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+        TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
       run: npm run start
       
     - name: Upload compiled code for the next 'run' job to use
