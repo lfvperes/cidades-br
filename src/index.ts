@@ -1,15 +1,11 @@
-import { Client, PlaceInputType } from "@googlemaps/google-maps-services-js";
+import { Client } from "@googlemaps/google-maps-services-js";
 import "dotenv/config";
-import { AtpAgent, RichText } from '@atproto/api';
+import { AtpAgent } from '@atproto/api';
 import * as process from 'process';
-import * as path from 'path';
-import * as fs from 'fs';
 import { processCity } from './googleMapsService';
 import { mediaSkeet, simpleReplySkeet } from './bsky';
 import { mediaTweet } from './xitter';
 import { TwitterApi } from "twitter-api-v2";
-
-// dotenv.config();
 
 // Create a Bluesky Agent 
 const agent = new AtpAgent({
