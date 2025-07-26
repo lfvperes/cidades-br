@@ -16,7 +16,6 @@ jobs:
     # The 'if' condition is the key here
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    environment: bot-test
     
     steps:
     - name: Check out repository
@@ -57,7 +56,6 @@ jobs:
     # This 'if' condition ensures it runs independently from the build
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    environment: bot-test
 
     # Explicitly grant the permissions this job needs.
     permissions:
