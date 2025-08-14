@@ -13,21 +13,41 @@ export async function mediaSkeet(agent: AtpAgent, imagePaths: string[], altTexts
   for (let i = 0; i < imagePaths.length; i++) {
     const path = imagePaths[i];
     const alt = altTexts[i];
+
     try {
       let imageBuffer = fs.readFileSync(path);
+      const originalSize = imageBuffer.length;
 
-      if (imageBuffer.length > MAX_IMAGE_SIZE_BYTES) {
-        console.warn(`Image "${path}" is too large, resizing...`);
-        imageBuffer = await sharp(imageBuffer)
-          .resize({ width: 2000, withoutEnlargement: true }) // Resize to max 2000px width, don't make small images larger
-          .jpeg({ quality: 85 }) // Set JPEG quality
-          .png({ compressionLevel: 9 }) // Set PNG compression
-          .toBuffer();
+      if (originalSize > MAX_IMAGE_SIZE_BYTES) {
+        console.warn(`Image "${path}" is too large (${(originalSize / 1024).toFixed(2)} KB). Attempting iterative compression...`);
+
+        let quality = 75; // Start with a moderate quality
+        let currentBuffer = imageBuffer; // Use a new variable to hold the buffer being processed
+
+        // Keep compressing until the buffer is small enough or quality is too low
+        while (currentBuffer.length > MAX_IMAGE_SIZE_BYTES && quality > 10) {
+          console.log(`Attempting compression with quality: ${quality}`);
+          
+          // Process the image using sharp
+          const resizedSharpOutput = await sharp(currentBuffer) // Use currentBuffer here
+            .jpeg({ quality: quality, progressive: true })
+            // .png({ compressionLevel: 9 }) // If you primarily use PNGs, you'd adjust this.
+            .toBuffer();
+          
+          // **CORRECTED FIX**: Create a standard buffer from sharp's output
+          currentBuffer = Buffer.from(resizedSharpOutput); 
+
+          quality -= 10; // Decrease quality for the next iteration
       }
 
-      if (imageBuffer.length > MAX_IMAGE_SIZE_BYTES) {
-        console.error(`Skipping "${path}" - still too large after resizing.`);
-        continue; // Skip to the next image
+        // Final check: if still too large after compression, skip
+        if (currentBuffer.length > MAX_IMAGE_SIZE_BYTES) {
+          console.error(`Skipping "${path}" - still too large (${(currentBuffer.length / 1024).toFixed(2)} KB) after iterative compression.`);
+          continue; // Give up and skip to the next image
+    }
+        
+        // Use the successfully compressed buffer
+        imageBuffer = currentBuffer;
       }
 
       validUploads.push({ buffer: imageBuffer, alt: alt });
