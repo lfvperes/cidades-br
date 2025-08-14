@@ -57,7 +57,7 @@ async function main() {
   }
 
   // --- Create post content ---
-  const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop} ${randomCity.gentilic}s\n\n#Brasil`;
+  const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop.toLocaleString('pt-BR')} ${randomCity.gentilic}s\n#${randomCity.state.replaceAll(' ','')} #Brasil`;
   const replyContent = "Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.";
   const altTexts = assetPaths.map((_, i) =>
     i === 0
