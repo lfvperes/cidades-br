@@ -1,4 +1,4 @@
-import { buildPostPlan, CityData, WikiData } from './postContent';
+import { buildPostPlan, printPostPlan, CityData, WikiData } from './postContent';
 
 const city: CityData = {
   name: 'Ouro Preto',
@@ -11,24 +11,7 @@ const assetPaths = ['/assets/map.png', '/assets/photo_1.png', '/assets/photo_2.p
 
 function printPlan(label: string, plan: ReturnType<typeof buildPostPlan>) {
   console.log(`\n========== ${label} ==========`);
-  console.log('--- Main post ---');
-  console.log(plan.mainText);
-  console.log('Alt texts:', plan.mainAltTexts);
-
-  if (plan.wikiTexts.length === 0) {
-    console.log('\n(no Wikipedia reply)');
-  } else {
-    plan.wikiTexts.forEach((text, i) => {
-      console.log(`\n--- Wikipedia reply ${i + 1}/${plan.wikiTexts.length} (${text.length} chars) ---`);
-      console.log(text);
-      if (i === 0 && plan.wikiImagePaths.length > 0) {
-        console.log('Image:', plan.wikiImagePaths, 'Alt:', plan.wikiAltTexts);
-      }
-    });
-  }
-
-  console.log('\n--- Credits reply ---');
-  console.log(plan.creditsText);
+  printPostPlan(plan);
   console.log('='.repeat(20 + label.length + 22));
 }
 

@@ -54,3 +54,28 @@ export function buildPostPlan(city: CityData, assetPaths: string[], wikiData: Wi
 
   return { mainText, mainAltTexts, wikiTexts, wikiImagePaths, wikiAltTexts, creditsText };
 }
+
+/**
+ * Prints every piece of a PostPlan to the console, in the order it would be
+ * posted, without posting anything.
+ */
+export function printPostPlan(plan: PostPlan): void {
+  console.log('--- Main post ---');
+  console.log(plan.mainText);
+  console.log('Alt texts:', plan.mainAltTexts);
+
+  if (plan.wikiTexts.length === 0) {
+    console.log('\n(no Wikipedia reply)');
+  } else {
+    plan.wikiTexts.forEach((text, i) => {
+      console.log(`\n--- Wikipedia reply ${i + 1}/${plan.wikiTexts.length} (${text.length} chars) ---`);
+      console.log(text);
+      if (i === 0 && plan.wikiImagePaths.length > 0) {
+        console.log('Image:', plan.wikiImagePaths, 'Alt:', plan.wikiAltTexts);
+      }
+    });
+  }
+
+  console.log('\n--- Credits reply ---');
+  console.log(plan.creditsText);
+}

@@ -6,7 +6,7 @@ import { processCity } from './googleMapsService';
 import { fetchCityWikipediaData } from './wikipediaService';
 import { mediaSkeet, simpleReplySkeet, mediaReplySkeet } from './bsky';
 import { mediaTweet, mediaReplyTweet } from './xitter';
-import { buildPostPlan } from './postContent';
+import { buildPostPlan, printPostPlan } from './postContent';
 import { TwitterApi } from "twitter-api-v2";
 
 // Create a Bluesky Agent 
@@ -25,13 +25,19 @@ const rwxClient = xClient.readWrite;
 // create a Google Maps Client
 const client = new Client({});
 
+const isDryRun = process.argv.includes('--dry-run');
+
 async function main() {
+  if (isDryRun) {
+    console.log('Running in --dry-run mode: nothing will be posted, and the city will not be marked as used.\n');
+  } else {
     await agent.login({
-        identifier: process.env.BLUESKY_USERNAME!, 
+        identifier: process.env.BLUESKY_USERNAME!,
         password: process.env.BLUESKY_PASSWORD!
     })
     console.log(`Logged in as ${agent.session?.handle}`);
-  
+  }
+
   // --- Fetch Random City ---
   const CITIES_API_ENDPOINT = process.env.CITIES_API_ENDPOINT!;
   var randomCity: any;
@@ -40,7 +46,7 @@ async function main() {
     const response = await fetch(CITIES_API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ "update_used": true })
+      body: JSON.stringify({ "update_used": !isDryRun })
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     randomCity = await response.json();
@@ -62,6 +68,7 @@ async function main() {
   }
 
   // --- Build post content ---
+  const plan = buildPostPlan(randomCity, assetPaths, wikiData);
   const {
     mainText: textContent,
     mainAltTexts: altTexts,
@@ -69,7 +76,12 @@ async function main() {
     wikiImagePaths,
     wikiAltTexts,
     creditsText: creditsContent,
-  } = buildPostPlan(randomCity, assetPaths, wikiData);
+  } = plan;
+
+  if (isDryRun) {
+    printPostPlan(plan);
+    return;
+  }
 
   // --- Post to Bluesky ---
   const skeet = await mediaSkeet(agent, assetPaths, altTexts, textContent)
