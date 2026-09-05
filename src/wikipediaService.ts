@@ -23,7 +23,7 @@ export interface CityWikipediaData {
  */
 export async function fetchCityWikipediaData(cityName: string, state: string): Promise<CityWikipediaData> {
   try {
-    const title = await searchArticleTitle(cityName, state);
+    const title = await resolveArticleTitle(cityName, state);
     if (!title) {
       console.log(`No Wikipedia article found for ${cityName}, ${state}.`);
       return { summary: null, flagPath: null };
@@ -41,12 +41,49 @@ export async function fetchCityWikipediaData(cityName: string, state: string): P
   }
 }
 
+async function resolveArticleTitle(cityName: string, state: string): Promise<string | null> {
+  // Brazilian municipality articles are almost always titled exactly as the
+  // city name, so try that direct/exact lookup first — MediaWiki's search
+  // relevance ranking is unreliable and can bury (or fuzzy-match past) the
+  // real article, as seen with small towns like "Campestre de Goiás".
+  const exactTitle = await fetchExactTitle(cityName);
+  if (exactTitle) return exactTitle;
+
+  // Falls back to search for name collisions, where the real article is
+  // disambiguated (e.g. "Bom Jesus (Rio Grande do Sul)").
+  return searchArticleTitle(cityName, state);
+}
+
+async function fetchExactTitle(cityName: string): Promise<string | null> {
+  const params = new URLSearchParams({
+    action: 'query',
+    titles: cityName,
+    redirects: '1',
+    prop: 'pageprops',
+    format: 'json',
+  });
+
+  const response = await fetch(`${WIKIPEDIA_API}?${params.toString()}`, { headers: WIKIMEDIA_HEADERS });
+  if (!response.ok) throw new Error(`Wikipedia titles lookup failed with status ${response.status}`);
+
+  const data = await response.json();
+  const pages = data?.query?.pages;
+  if (!pages) return null;
+
+  const page: any = Object.values(pages)[0];
+  if (!page || page.missing !== undefined) return null;
+  // Disambiguation pages (name collisions) need the search fallback instead.
+  if (page.pageprops?.disambiguation !== undefined) return null;
+
+  return page.title;
+}
+
 async function searchArticleTitle(cityName: string, state: string): Promise<string | null> {
   const params = new URLSearchParams({
     action: 'query',
     list: 'search',
     srsearch: `${cityName} ${state}`,
-    srlimit: '1',
+    srlimit: '5',
     format: 'json',
   });
 
@@ -57,13 +94,15 @@ async function searchArticleTitle(cityName: string, state: string): Promise<stri
   const results = data?.query?.search;
   if (!results || results.length === 0) return null;
 
-  const topTitle = results[0].title;
-  // MediaWiki search falls back to a fuzzy/unrelated best-effort match when
-  // there's no real hit (e.g. an unknown city name), so only trust it if the
-  // title actually starts with the city name (as real/disambiguated articles do).
-  if (!normalize(topTitle).startsWith(normalize(cityName))) return null;
+  // MediaWiki's relevance ranking doesn't always put the actual city article
+  // first (e.g. an article merely mentioning the city name can outrank it),
+  // and falls back to unrelated results entirely when there's no real hit.
+  // So scan the top results and only trust one whose title actually starts
+  // with the city name (as real/disambiguated articles do).
+  const normalizedCityName = normalize(cityName);
+  const match = results.find((result: any) => normalize(result.title).startsWith(normalizedCityName));
 
-  return topTitle;
+  return match?.title || null;
 }
 
 function normalize(text: string): string {
