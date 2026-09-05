@@ -6,9 +6,7 @@ import sharp from 'sharp';
 const MAX_IMAGE_SIZE_KB = 976.56;
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_KB * 1024;
 
-export async function mediaSkeet(agent: AtpAgent, imagePaths: string[], altTexts: string[], textContent: string) {
-  console.log("Processing images for Bluesky...");
-
+async function processImagesForUpload(imagePaths: string[], altTexts: string[]): Promise<{ buffer: any; alt: string }[]> {
   const validUploads: { buffer: any; alt: string }[] = [];
   for (let i = 0; i < imagePaths.length; i++) {
     const path = imagePaths[i];
@@ -27,15 +25,15 @@ export async function mediaSkeet(agent: AtpAgent, imagePaths: string[], altTexts
         // Keep compressing until the buffer is small enough or quality is too low
         while (currentBuffer.length > MAX_IMAGE_SIZE_BYTES && quality > 10) {
           console.log(`Attempting compression with quality: ${quality}`);
-          
+
           // Process the image using sharp
           const resizedSharpOutput = await sharp(currentBuffer) // Use currentBuffer here
             .jpeg({ quality: quality, progressive: true })
             // .png({ compressionLevel: 9 }) // If you primarily use PNGs, you'd adjust this.
             .toBuffer();
-          
+
           // **CORRECTED FIX**: Create a standard buffer from sharp's output
-          currentBuffer = Buffer.from(resizedSharpOutput); 
+          currentBuffer = Buffer.from(resizedSharpOutput);
 
           quality -= 10; // Decrease quality for the next iteration
       }
@@ -45,7 +43,7 @@ export async function mediaSkeet(agent: AtpAgent, imagePaths: string[], altTexts
           console.error(`Skipping "${path}" - still too large (${(currentBuffer.length / 1024).toFixed(2)} KB) after iterative compression.`);
           continue; // Give up and skip to the next image
     }
-        
+
         // Use the successfully compressed buffer
         imageBuffer = currentBuffer;
       }
@@ -55,6 +53,13 @@ export async function mediaSkeet(agent: AtpAgent, imagePaths: string[], altTexts
       console.error(`Failed to process image "${path}":`, error);
     }
   }
+  return validUploads;
+}
+
+export async function mediaSkeet(agent: AtpAgent, imagePaths: string[], altTexts: string[], textContent: string) {
+  console.log("Processing images for Bluesky...");
+
+  const validUploads = await processImagesForUpload(imagePaths, altTexts);
 
   if (validUploads.length === 0) {
     console.warn("No valid images to upload. Posting text only.");
@@ -93,12 +98,54 @@ export async function mediaSkeet(agent: AtpAgent, imagePaths: string[], altTexts
   return recordObj;
 }
 
-export async function simpleReplySkeet(agent: AtpAgent, recordObj: { uri: string; cid: string }, textContent: string) {
-  await agent.post({
+export async function simpleReplySkeet(
+  agent: AtpAgent,
+  root: { uri: string; cid: string },
+  parent: { uri: string; cid: string },
+  textContent: string
+) {
+  return agent.post({
     text: textContent,
-    reply: {
-        root: recordObj,
-        parent: recordObj
+    reply: { root, parent }
+  });
+}
+
+export async function mediaReplySkeet(
+  agent: AtpAgent,
+  root: { uri: string; cid: string },
+  parent: { uri: string; cid: string },
+  imagePaths: string[],
+  altTexts: string[],
+  textContent: string
+) {
+  const validUploads = await processImagesForUpload(imagePaths, altTexts);
+
+  const rTxt = new RichText({ text: textContent });
+  await rTxt.detectFacets(agent);
+
+  const basePost = {
+    text: rTxt.text,
+    facets: rTxt.facets,
+    langs: ["pt-BR"],
+    reply: { root, parent },
+  };
+
+  if (validUploads.length === 0) {
+    return agent.post(basePost);
+  }
+
+  const uploadResults = await Promise.all(
+    validUploads.map(upload => agent.com.atproto.repo.uploadBlob(upload.buffer))
+  );
+
+  return agent.post({
+    ...basePost,
+    embed: {
+      $type: "app.bsky.embed.images",
+      images: uploadResults.map((res, i) => ({
+        alt: validUploads[i].alt,
+        image: res.data.blob,
+      }))
     }
   });
 }
