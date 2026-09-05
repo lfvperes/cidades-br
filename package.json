@@ -17,6 +17,7 @@
     "main": "src/index.ts",
     "scripts": {
         "start": "ts-node src/index.ts",
+        "dry-run": "ts-node src/index.ts --dry-run",
         "map": "ts-node src/map.ts",
         "build": "tsc",
         "test": "jest"
