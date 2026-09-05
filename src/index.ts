@@ -3,8 +3,10 @@ import "dotenv/config";
 import { AtpAgent } from '@atproto/api';
 import * as process from 'process';
 import { processCity } from './googleMapsService';
-import { mediaSkeet, simpleReplySkeet } from './bsky';
-import { mediaTweet } from './xitter';
+import { fetchCityWikipediaData } from './wikipediaService';
+import { mediaSkeet, simpleReplySkeet, mediaReplySkeet } from './bsky';
+import { mediaTweet, mediaReplyTweet } from './xitter';
+import { buildPostPlan } from './postContent';
 import { TwitterApi } from "twitter-api-v2";
 
 // Create a Bluesky Agent 
@@ -48,36 +50,62 @@ async function main() {
     return; // Exit if we can't get a city
   }
 
-  // --- Generate Map and Photo Assets from Google Maps API and Google Places API ---
-  const assetPaths = await processCity(`${randomCity.name} ${randomCity.state}`);
+  // --- Generate Map/Photo Assets and Wikipedia Data in parallel ---
+  const [assetPaths, wikiData] = await Promise.all([
+    processCity(`${randomCity.name} ${randomCity.state}`),
+    fetchCityWikipediaData(randomCity.name, randomCity.state)
+  ]);
 
   if (assetPaths.length === 0) {
     console.log("No assets were generated. Aborting post.");
     return;
   }
 
-  // --- Create post content ---
-  const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop.toLocaleString('pt-BR')} ${randomCity.gentilic}s\n#${randomCity.state.replaceAll(' ','')} #Brasil`;
-  const replyContent = "Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.";
-  const altTexts = assetPaths.map((_, i) =>
-    i === 0
-      ? `Mapa de ${randomCity.name}, ${randomCity.state}`
-      : `Foto de ${randomCity.name}, ${randomCity.state}`
-  );
-  
+  // --- Build post content ---
+  const {
+    mainText: textContent,
+    mainAltTexts: altTexts,
+    wikiTexts,
+    wikiImagePaths,
+    wikiAltTexts,
+    creditsText: creditsContent,
+  } = buildPostPlan(randomCity, assetPaths, wikiData);
+
   // --- Post to Bluesky ---
-  const skeet = await mediaSkeet(agent, assetPaths, altTexts, textContent)  
+  const skeet = await mediaSkeet(agent, assetPaths, altTexts, textContent)
   console.log(`Post successful on Bluesky!\n${textContent}\n`);
-  // --- Post a Reply ---
-  await simpleReplySkeet(agent, skeet, replyContent);
-  console.log(`Reply successful on Bluesky!\n${replyContent}`);
-  
+
+  // --- Post Wikipedia Reply(ies) (if available), split across posts if too long ---
+  let lastBskyPost = skeet;
+  for (let i = 0; i < wikiTexts.length; i++) {
+    const images = i === 0 ? wikiImagePaths : [];
+    const alts = i === 0 ? wikiAltTexts : [];
+    lastBskyPost = await mediaReplySkeet(agent, skeet, lastBskyPost, images, alts, wikiTexts[i]);
+    console.log(`Wikipedia reply ${i + 1}/${wikiTexts.length} successful on Bluesky!\n${wikiTexts[i]}`);
+  }
+
+  // --- Post Credits Reply ---
+  await simpleReplySkeet(agent, skeet, lastBskyPost, creditsContent);
+  console.log(`Reply successful on Bluesky!\n${creditsContent}`);
+
   // --- Post to Twitter ---
   const tweet = await mediaTweet(xClient, rwxClient, assetPaths, textContent);
   console.log(`Tweet successful on Twitter!\n${textContent}`);
+
   if (tweet) {
-    await xClient.v2.reply(replyContent, tweet.data.id);
-    console.log(`Reply successful on Twitter!\n${replyContent}`);
+    let lastTweetId = tweet.data.id;
+
+    // --- Post Wikipedia Reply(ies) (if available), split across posts if too long ---
+    for (let i = 0; i < wikiTexts.length; i++) {
+      const images = i === 0 ? wikiImagePaths : [];
+      const wikiTweet = await mediaReplyTweet(xClient, rwxClient, images, wikiTexts[i], lastTweetId);
+      console.log(`Wikipedia reply ${i + 1}/${wikiTexts.length} successful on Twitter!\n${wikiTexts[i]}`);
+      if (wikiTweet) lastTweetId = wikiTweet.data.id;
+    }
+
+    // --- Post Credits Reply ---
+    await xClient.v2.reply(creditsContent, lastTweetId);
+    console.log(`Reply successful on Twitter!\n${creditsContent}`);
   }
 }
 
