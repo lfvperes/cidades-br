@@ -6,7 +6,7 @@ import { processCity } from './googleMapsService';
 import { fetchCityWikipediaData } from './wikipediaService';
 import { mediaSkeet, simpleReplySkeet, mediaReplySkeet } from './bsky';
 import { mediaTweet, mediaReplyTweet } from './xitter';
-import { chunkText } from './textUtils';
+import { buildPostPlan } from './postContent';
 import { TwitterApi } from "twitter-api-v2";
 
 // Create a Bluesky Agent 
@@ -61,29 +61,15 @@ async function main() {
     return;
   }
 
-  // --- Create post content ---
-  const textContent = `📍 ${randomCity.name}, ${randomCity.state}\nPopulação: ${randomCity.est_pop.toLocaleString('pt-BR')} ${randomCity.gentilic}s\n#${randomCity.state.replaceAll(' ','')} #Brasil`;
-  const altTexts = assetPaths.map((_, i) =>
-    i === 0
-      ? `Mapa de ${randomCity.name}, ${randomCity.state}`
-      : `Foto de ${randomCity.name}, ${randomCity.state}`
-  );
-
-  // Leaves room for a "(x/y) " numbering prefix on multi-part paragraphs,
-  // and stays under Twitter's 280-char cap since the same text posts to both platforms.
-  const WIKI_CHUNK_LIMIT = 260;
-  const wikiChunks = wikiData.summary ? chunkText(wikiData.summary, WIKI_CHUNK_LIMIT) : [];
-  const wikiTexts = wikiChunks.map((chunk, i) =>
-    wikiChunks.length > 1 ? `(${i + 1}/${wikiChunks.length}) ${chunk}` : chunk
-  );
-
-  let creditsContent = "Dados obtidos do IBGE. Fotos obtidas do Google Places API e mapas obtidos do Google Maps Static API.";
-  if (wikiTexts.length > 0) {
-    creditsContent += wikiData.flagPath ? " Texto e bandeira obtidos da Wikipedia." : " Texto obtido da Wikipedia.";
-  }
-
-  const wikiImagePaths = wikiData.flagPath ? [wikiData.flagPath] : [];
-  const wikiAltTexts = wikiData.flagPath ? [`Bandeira de ${randomCity.name}`] : [];
+  // --- Build post content ---
+  const {
+    mainText: textContent,
+    mainAltTexts: altTexts,
+    wikiTexts,
+    wikiImagePaths,
+    wikiAltTexts,
+    creditsText: creditsContent,
+  } = buildPostPlan(randomCity, assetPaths, wikiData);
 
   // --- Post to Bluesky ---
   const skeet = await mediaSkeet(agent, assetPaths, altTexts, textContent)
