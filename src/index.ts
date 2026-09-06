@@ -27,7 +27,20 @@ const client = new Client({});
 
 const isDryRun = process.argv.includes('--dry-run');
 
+function getArgValue(flag: string): string | null {
+  const index = process.argv.indexOf(flag);
+  return index !== -1 ? process.argv[index + 1] : null;
+}
+
+const manualCityName = getArgValue('--city');
+const manualState = getArgValue('--state');
+
 async function main() {
+  if (manualCityName && !manualState) {
+    console.error('--city requires --state to also be set.');
+    return;
+  }
+
   if (isDryRun) {
     console.log('Running in --dry-run mode: nothing will be posted, and the city will not be marked as used.\n');
   } else {
@@ -38,22 +51,45 @@ async function main() {
     console.log(`Logged in as ${agent.session?.handle}`);
   }
 
-  // --- Fetch Random City ---
-  const CITIES_API_ENDPOINT = process.env.CITIES_API_ENDPOINT!;
   var randomCity: any;
-  try {
-    console.log('Fetching a random city...');
-    const response = await fetch(CITIES_API_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ "update_used": !isDryRun })
-    });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    randomCity = await response.json();
-    console.log(`City found: ${randomCity.name}`);
-  } catch (error) {
-    console.error('Error fetching city data:', error);
-    return; // Exit if we can't get a city
+  const CITIES_API_ENDPOINT = process.env.CITIES_API_ENDPOINT!;
+  if (manualCityName) {
+    // The base /cidades/ list endpoint (as opposed to /cidades/random/)
+    // supports filtering by exact name/state and is read-only (GET), so it's
+    // safe to look up a specific city without touching its "used" flag.
+    const CITIES_LIST_ENDPOINT = CITIES_API_ENDPOINT.replace(/random\/?$/, '');
+    try {
+      console.log(`Looking up city: ${manualCityName}, ${manualState}`);
+      const params = new URLSearchParams({ name: manualCityName!, state: manualState! });
+      const response = await fetch(`${CITIES_LIST_ENDPOINT}?${params.toString()}`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const results = await response.json();
+      if (!results || results.length === 0) {
+        console.error(`No city found matching "${manualCityName}, ${manualState}".`);
+        return;
+      }
+      randomCity = results[0];
+      console.log(`City found: ${randomCity.name}`);
+    } catch (error) {
+      console.error('Error looking up city data:', error);
+      return;
+    }
+  } else {
+    // --- Fetch Random City ---
+    try {
+      console.log('Fetching a random city...');
+      const response = await fetch(CITIES_API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ "update_used": !isDryRun })
+      });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      randomCity = await response.json();
+      console.log(`City found: ${randomCity.name}`);
+    } catch (error) {
+      console.error('Error fetching city data:', error);
+      return; // Exit if we can't get a city
+    }
   }
 
   // --- Generate Map/Photo Assets and Wikipedia Data in parallel ---
