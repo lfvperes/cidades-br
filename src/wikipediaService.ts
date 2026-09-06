@@ -6,6 +6,11 @@ const WIKIPEDIA_REST_API = 'https://pt.wikipedia.org/api/rest_v1/page/summary';
 const WIKIDATA_API = 'https://www.wikidata.org/wiki/Special:EntityData';
 const COMMONS_FILE_PATH = 'https://commons.wikimedia.org/wiki/Special:FilePath';
 
+// Wikidata's class for "município do Brasil" — used to confirm a candidate
+// article is actually about a Brazilian municipality, not a same-named
+// homonym (e.g. "Independência" the concept vs. "Independência (Ceará)" the city).
+const BRAZILIAN_MUNICIPALITY_QID = 'Q3184121';
+
 // Wikimedia's API etiquette policy throttles/blocks requests without a
 // descriptive User-Agent, so every request identifies this bot and its repo.
 const USER_AGENT = 'CidadesBrBot/1.0 (https://github.com/lfvperes/cidades-br)';
@@ -16,6 +21,11 @@ export interface CityWikipediaData {
   flagPath: string | null;
 }
 
+interface ResolvedArticle {
+  title: string;
+  qid: string;
+}
+
 /**
  * Fetches a city's Wikipedia summary paragraph and flag image (via Wikidata).
  * Fails gracefully: any missing piece (no article, no flag claim, download error)
@@ -23,15 +33,15 @@ export interface CityWikipediaData {
  */
 export async function fetchCityWikipediaData(cityName: string, state: string): Promise<CityWikipediaData> {
   try {
-    const title = await resolveArticleTitle(cityName, state);
-    if (!title) {
+    const resolved = await resolveArticle(cityName, state);
+    if (!resolved) {
       console.log(`No Wikipedia article found for ${cityName}, ${state}.`);
       return { summary: null, flagPath: null };
     }
 
     const [summary, flagPath] = await Promise.all([
-      fetchSummary(title),
-      fetchFlagImage(title, cityName),
+      fetchSummary(resolved.title),
+      fetchFlagImage(resolved.qid, cityName),
     ]);
 
     return { summary, flagPath };
@@ -41,17 +51,35 @@ export async function fetchCityWikipediaData(cityName: string, state: string): P
   }
 }
 
-async function resolveArticleTitle(cityName: string, state: string): Promise<string | null> {
+async function resolveArticle(cityName: string, state: string): Promise<ResolvedArticle | null> {
   // Brazilian municipality articles are almost always titled exactly as the
   // city name, so try that direct/exact lookup first — MediaWiki's search
   // relevance ranking is unreliable and can bury (or fuzzy-match past) the
   // real article, as seen with small towns like "Campestre de Goiás".
   const exactTitle = await fetchExactTitle(cityName);
-  if (exactTitle) return exactTitle;
+  if (exactTitle) {
+    const resolved = await verifyMunicipality(exactTitle);
+    if (resolved) return resolved;
+  }
 
   // Falls back to search for name collisions, where the real article is
-  // disambiguated (e.g. "Bom Jesus (Rio Grande do Sul)").
-  return searchArticleTitle(cityName, state);
+  // disambiguated (e.g. "Bom Jesus (Rio Grande do Sul)"), or where the exact
+  // title belongs to an unrelated homonym (e.g. "Independência" the concept).
+  return searchArticle(cityName, state);
+}
+
+/**
+ * Confirms a candidate title is actually about a Brazilian municipality by
+ * checking its Wikidata "instance of" (P31) claim — a title match alone
+ * isn't enough, since Wikipedia often has an unrelated article under the
+ * exact same name as a city (concepts, people, companies, etc).
+ */
+async function verifyMunicipality(title: string): Promise<ResolvedArticle | null> {
+  const qid = await fetchWikidataId(title);
+  if (!qid) return null;
+
+  const isMunicipality = await isBrazilianMunicipality(qid);
+  return isMunicipality ? { title, qid } : null;
 }
 
 async function fetchExactTitle(cityName: string): Promise<string | null> {
@@ -78,7 +106,7 @@ async function fetchExactTitle(cityName: string): Promise<string | null> {
   return page.title;
 }
 
-async function searchArticleTitle(cityName: string, state: string): Promise<string | null> {
+async function searchArticle(cityName: string, state: string): Promise<ResolvedArticle | null> {
   const params = new URLSearchParams({
     action: 'query',
     list: 'search',
@@ -97,12 +125,17 @@ async function searchArticleTitle(cityName: string, state: string): Promise<stri
   // MediaWiki's relevance ranking doesn't always put the actual city article
   // first (e.g. an article merely mentioning the city name can outrank it),
   // and falls back to unrelated results entirely when there's no real hit.
-  // So scan the top results and only trust one whose title actually starts
-  // with the city name (as real/disambiguated articles do).
+  // So scan the top results whose title starts with the city name, and
+  // verify each one against Wikidata until a real municipality is found.
   const normalizedCityName = normalize(cityName);
-  const match = results.find((result: any) => normalize(result.title).startsWith(normalizedCityName));
+  const candidates = results.filter((result: any) => normalize(result.title).startsWith(normalizedCityName));
 
-  return match?.title || null;
+  for (const candidate of candidates) {
+    const resolved = await verifyMunicipality(candidate.title);
+    if (resolved) return resolved;
+  }
+
+  return null;
 }
 
 function normalize(text: string): string {
@@ -121,16 +154,6 @@ async function fetchSummary(title: string): Promise<string | null> {
 
   const data = await response.json();
   return data.extract || null;
-}
-
-async function fetchFlagImage(title: string, cityName: string): Promise<string | null> {
-  const qid = await fetchWikidataId(title);
-  if (!qid) return null;
-
-  const flagFilename = await fetchFlagFilename(qid);
-  if (!flagFilename) return null;
-
-  return downloadFlagImage(flagFilename, cityName);
 }
 
 async function fetchWikidataId(title: string): Promise<string | null> {
@@ -152,14 +175,26 @@ async function fetchWikidataId(title: string): Promise<string | null> {
   return page?.pageprops?.wikibase_item || null;
 }
 
-async function fetchFlagFilename(qid: string): Promise<string | null> {
+async function fetchWikidataClaims(qid: string): Promise<any | null> {
   const response = await fetch(`${WIKIDATA_API}/${qid}.json`, { headers: WIKIMEDIA_HEADERS });
   if (!response.ok) throw new Error(`Wikidata entity request failed with status ${response.status}`);
 
   const data = await response.json();
-  const claims = data?.entities?.[qid]?.claims;
-  const flagClaim = claims?.P41?.[0]?.mainsnak?.datavalue?.value;
-  return flagClaim || null;
+  return data?.entities?.[qid]?.claims || null;
+}
+
+async function isBrazilianMunicipality(qid: string): Promise<boolean> {
+  const claims = await fetchWikidataClaims(qid);
+  const instanceOfClaims = claims?.P31 || [];
+  return instanceOfClaims.some((claim: any) => claim?.mainsnak?.datavalue?.value?.id === BRAZILIAN_MUNICIPALITY_QID);
+}
+
+async function fetchFlagImage(qid: string, cityName: string): Promise<string | null> {
+  const claims = await fetchWikidataClaims(qid);
+  const flagFilename = claims?.P41?.[0]?.mainsnak?.datavalue?.value;
+  if (!flagFilename) return null;
+
+  return downloadFlagImage(flagFilename, cityName);
 }
 
 async function downloadFlagImage(filename: string, cityName: string): Promise<string | null> {
