@@ -5,6 +5,16 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 
+export async function simpleTweet(rwClient: TwitterApiReadWrite, textContent: string) {
+    try {
+        const createdTweet = await rwClient.v2.tweet({ text: textContent });
+        console.log("success");
+        return createdTweet;
+    } catch (e) {
+        console.error(e);
+    }
+};
+
 export async function mediaTweet(client: TwitterApi, rwClient: TwitterApiReadWrite, imagePaths: string[], textContent: string) {
     try {
         const uploadPromises = imagePaths.map(p => client.v1.uploadMedia(p));
