@@ -10,7 +10,7 @@ export interface WeeklyReportPlan {
 /**
  * Builds the text for the weekly progress post, without touching any
  * network or posting API. Pure and deterministic so it can be inspected/
- * tested independently of Bluesky/Twitter credentials.
+ * tested independently of Bluesky credentials.
  */
 export function buildWeeklyReportPlan(stats: CityStats): WeeklyReportPlan {
   const percentage = stats.total > 0 ? (stats.published / stats.total) * 100 : 0;
