@@ -5,22 +5,12 @@ import * as process from 'process';
 import { processCity } from './googleMapsService';
 import { fetchCityWikipediaData } from './wikipediaService';
 import { mediaSkeet, simpleReplySkeet, mediaReplySkeet } from './bsky';
-import { mediaTweet, mediaReplyTweet } from './xitter';
 import { buildPostPlan, printPostPlan } from './postContent';
-import { TwitterApi } from "twitter-api-v2";
 
-// Create a Bluesky Agent 
+// Create a Bluesky Agent
 const agent = new AtpAgent({
     service: 'https://bsky.social',
 });
-// Create a X Client
-const xClient = new TwitterApi({
-  appKey: process.env.TWITTER_API_KEY!,
-  appSecret: process.env.TWITTER_API_SECRET!,
-  accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-  accessSecret: process.env.TWITTER_ACCESS_SECRET!
-});
-const rwxClient = xClient.readWrite;
 
 // create a Google Maps Client
 const client = new Client({});
@@ -135,26 +125,6 @@ async function main() {
   // --- Post Credits Reply ---
   await simpleReplySkeet(agent, skeet, lastBskyPost, creditsContent);
   console.log(`Reply successful on Bluesky!\n${creditsContent}`);
-
-  // --- Post to Twitter ---
-  const tweet = await mediaTweet(xClient, rwxClient, assetPaths, textContent);
-  console.log(`Tweet successful on Twitter!\n${textContent}`);
-
-  if (tweet) {
-    let lastTweetId = tweet.data.id;
-
-    // --- Post Wikipedia Reply(ies) (if available), split across posts if too long ---
-    for (let i = 0; i < wikiTexts.length; i++) {
-      const images = i === 0 ? wikiImagePaths : [];
-      const wikiTweet = await mediaReplyTweet(xClient, rwxClient, images, wikiTexts[i], lastTweetId);
-      console.log(`Wikipedia reply ${i + 1}/${wikiTexts.length} successful on Twitter!\n${wikiTexts[i]}`);
-      if (wikiTweet) lastTweetId = wikiTweet.data.id;
-    }
-
-    // --- Post Credits Reply ---
-    await xClient.v2.reply(creditsContent, lastTweetId);
-    console.log(`Reply successful on Twitter!\n${creditsContent}`);
-  }
 }
 
 main();

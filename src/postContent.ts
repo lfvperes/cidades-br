@@ -1,7 +1,6 @@
 import { chunkText } from './textUtils';
 
-// Leaves room for a "(x/y) " numbering prefix on multi-part paragraphs,
-// and stays under Twitter's 280-char cap since the same text posts to both platforms.
+// Leaves room for a "(x/y) " numbering prefix on multi-part paragraphs.
 const WIKI_CHUNK_LIMIT = 260;
 
 export interface CityData {
@@ -28,7 +27,7 @@ export interface PostPlan {
 /**
  * Builds every piece of text/media that will be posted for a city, without
  * touching any network or posting API. Pure and deterministic so it can be
- * inspected/tested independently of Bluesky/Twitter credentials.
+ * inspected/tested independently of Bluesky credentials.
  */
 export function buildPostPlan(city: CityData, assetPaths: string[], wikiData: WikiData): PostPlan {
   const mainText = `📍 ${city.name}, ${city.state}\nPopulação: ${city.est_pop.toLocaleString('pt-BR')} ${city.gentilic}s\n#${city.state.replaceAll(' ', '')} #Brasil`;

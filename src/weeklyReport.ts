@@ -2,20 +2,11 @@ import "dotenv/config";
 import { AtpAgent } from '@atproto/api';
 import * as process from 'process';
 import { mediaSkeet } from './bsky';
-import { simpleTweet } from './xitter';
 import { buildWeeklyReportPlan, printWeeklyReportPlan, CityStats } from './weeklyReportContent';
-import { TwitterApi } from "twitter-api-v2";
 
 const agent = new AtpAgent({
     service: 'https://bsky.social',
 });
-const xClient = new TwitterApi({
-  appKey: process.env.TWITTER_API_KEY!,
-  appSecret: process.env.TWITTER_API_SECRET!,
-  accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-  accessSecret: process.env.TWITTER_ACCESS_SECRET!
-});
-const rwxClient = xClient.readWrite;
 
 const isDryRun = process.argv.includes('--dry-run');
 
@@ -58,9 +49,6 @@ async function main() {
 
   await mediaSkeet(agent, [], [], plan.text);
   console.log(`Post successful on Bluesky!\n${plan.text}`);
-
-  await simpleTweet(rwxClient, plan.text);
-  console.log(`Tweet successful on Twitter!\n${plan.text}`);
 }
 
 main();
